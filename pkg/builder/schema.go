@@ -8,10 +8,12 @@ import (
 	"github.com/getkin/kin-openapi/openapi3"
 )
 
-func NewSchemaBuilder(module, packageName string, schemaRef *openapi3.SchemaRef, addTags bool) Builder {
+// NewSchemaBuilder creates a new Builder for the openapi3.SchemaRef object
+func NewSchemaBuilder(module, packageName string, parentID string, schemaRef *openapi3.SchemaRef, addTags bool) Builder {
 	return &schemaBuilder{
 		Module:      module,
 		PackageName: packageName,
+		ParentID:    parentID,
 		SchemaRef:   schemaRef,
 		AddTags:     addTags,
 	}
@@ -21,51 +23,53 @@ type schemaBuilder struct {
 	AddTags     bool
 	Module      string
 	PackageName string
+	ParentID    string
 	SchemaRef   *openapi3.SchemaRef
 }
 
-func (builder *schemaBuilder) AsStruct(structName string) jen.Code {
+func (builder *schemaBuilder) AsStruct(structName string) (jen.Code, []jen.Code) {
 	schema := builder.SchemaRef.Value
 	if schema == nil {
 		panic("SchemaBuilder.AsStruct does not function without SchemaRef.Value")
 	}
 
+	extraStruct := make([]jen.Code, 0)
+
 	schemaName := fmt.Sprintf("%s", strings.Title(structName))
 
 	params := make([]jen.Code, 0)
 	for parameterName, property := range schema.Properties {
-		builder := NewSchemaBuilder(builder.Module, builder.PackageName, property, true)
-		params = append(
-			params,
-			builder.AsField(parameterName),
-		)
+		builder := NewSchemaBuilder(builder.Module, builder.PackageName, structName, property, true)
+		main, extra := builder.AsField(parameterName)
+		params = append(params, main)
+		extraStruct = append(extraStruct, extra...)
 	}
 
 	if allOf := schema.AllOf; len(allOf) > 0 {
 		for _, schemaRef := range allOf {
-			builder := NewSchemaBuilder(builder.Module, builder.PackageName, schemaRef, true)
-			params = append(
-				params,
-				builder.AsField(""),
-			)
+			builder := NewSchemaBuilder(builder.Module, builder.PackageName, structName, schemaRef, true)
+			main, extra := builder.AsField("")
+			params = append(params, main)
+			extraStruct = append(extraStruct, extra...)
 		}
 	}
 	if oneOf := schema.OneOf; len(oneOf) > 0 {
 		for _, schemaRef := range oneOf {
-			builder := NewSchemaBuilder(builder.Module, builder.PackageName, schemaRef, true)
-			params = append(
-				params,
-				builder.AsField(""),
-			)
+			builder := NewSchemaBuilder(builder.Module, builder.PackageName, structName, schemaRef, true)
+			main, extra := builder.AsField("")
+			params = append(params, main)
+			extraStruct = append(extraStruct, extra...)
 		}
 	}
 
-	return jen.Commentf("%s: %s", schemaName, schema.Description).Line().Type().Id(schemaName).Struct(params...).Line()
+	return jen.Commentf("%s: %s", schemaName, schema.Description).Line().Type().Id(schemaName).Struct(params...).Line(), extraStruct
 }
 
-func (builder *schemaBuilder) AsField(fieldName string) jen.Code {
+func (builder *schemaBuilder) AsField(fieldName string) (jen.Code, []jen.Code) {
 	var param *jen.Statement
 	title := strings.Title(fieldName)
+
+	extraStruct := make([]jen.Code, 0)
 
 	if builder.SchemaRef.Ref != "" {
 		split := strings.Split(builder.SchemaRef.Ref, "/")
@@ -87,15 +91,14 @@ func (builder *schemaBuilder) AsField(fieldName string) jen.Code {
 				// allOf or oneOf, add fields to existing struct
 				fields := make([]jen.Code, 0)
 				for name, property := range schema.Properties {
-					builder := NewSchemaBuilder(builder.Module, builder.PackageName, property, true)
-					fields = append(
-						fields,
-						builder.AsField(name),
-					)
+					builder := NewSchemaBuilder(builder.Module, builder.PackageName, fieldName, property, true)
+					main, extra := builder.AsField(name)
+					fields = append(fields, main)
+					extraStruct = append(extraStruct, extra...)
 				}
-				return jen.Add(fields...)
+				return jen.Add(fields...), extraStruct
 			default:
-				panic("using oneof or allof with primitive or array instead of object")
+				panic("using oneOf or allOf with primitive or array instead of object")
 			}
 		} else {
 			param = jen.Comment(schema.Description).Line().Id(title)
@@ -105,28 +108,34 @@ func (builder *schemaBuilder) AsField(fieldName string) jen.Code {
 				// imbedded struct
 				fields := make([]jen.Code, 0)
 				for name, property := range schema.Properties {
-					builder := NewSchemaBuilder(builder.Module, builder.PackageName, property, true)
-					fields = append(
-						fields,
-						builder.AsField(name),
-					)
+					builder := NewSchemaBuilder(builder.Module, builder.PackageName, fieldName, property, true)
+					main, extra := builder.AsField(name)
+					fields = append(fields, main)
+					extraStruct = append(extraStruct, extra...)
 				}
 
-				subID := fmt.Sprintf("%s%s", "Embeded", title)
-				// subStruct := jen.Type().Id(subID).Struct(fields...)
+				subID := fmt.Sprintf("%s%s", strings.Title(builder.ParentID), title)
+				extraStruct = append(
+					extraStruct,
+					jen.Type().Id(subID).Struct(fields...),
+				)
 
-				param = param.Qual("", subID)
+				param = param.Op("*").Qual("", subID)
 			case "array":
 				if schema.Items.Ref != "" {
-					itemBuilder := NewSchemaBuilder(builder.Module, builder.PackageName, schema.Items, false)
-					param = param.Op("[]").Add(itemBuilder.AsField(""))
+					itemBuilder := NewSchemaBuilder(builder.Module, builder.PackageName, fieldName, schema.Items, false)
+					main, extra := itemBuilder.AsField("")
+					param = param.Op("[]").Op("*").Add(main)
+					extraStruct = append(extraStruct, extra...)
 				} else if itemValue := schema.Items.Value; itemValue != nil {
 					switch itemValue.Type {
 					case "object":
 						fallthrough
 					case "array":
-						itemBuilder := NewSchemaBuilder(builder.Module, builder.PackageName, schema.Items, false)
-						param = param.Op("[]").Add(itemBuilder.AsField(""))
+						itemBuilder := NewSchemaBuilder(builder.Module, builder.PackageName, fieldName, schema.Items, false)
+						main, extra := itemBuilder.AsField("")
+						param = param.Op("[]").Op("*").Add(main)
+						extraStruct = append(extraStruct, extra...)
 					default:
 						param = param.Op("[]")
 						param = addPrimitiveTypeFromSchema(param, itemValue)
@@ -155,5 +164,5 @@ func (builder *schemaBuilder) AsField(fieldName string) jen.Code {
 		}
 	}
 
-	return param
+	return param, extraStruct
 }
