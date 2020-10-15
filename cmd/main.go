@@ -7,8 +7,6 @@ import (
 	"os"
 
 	"github.com/evilmonkeyinc/openapi-go-gen/pkg/builder"
-	"github.com/evilmonkeyinc/openapi-go-gen/pkg/parser"
-	"github.com/evilmonkeyinc/openapi-go-gen/pkg/utils"
 	"github.com/getkin/kin-openapi/openapi3"
 )
 
@@ -35,35 +33,43 @@ func main() {
 		panic(err)
 	}
 
-	swaggerParser, err := parser.New(swagger)
-	if err != nil {
-		panic(err)
-	}
-
 	os.MkdirAll(*output, os.ModePerm)
 	os.MkdirAll(fmt.Sprintf("%s/schemas", *output), os.ModePerm)
 	os.MkdirAll(fmt.Sprintf("%s/responses", *output), os.ModePerm)
-	for key, schema := range swaggerParser.Schemas {
-		fileString := builder.BuildSchemaFile(*modulePath, key, schema)
-		err := utils.WriteFile(fileString, fmt.Sprintf("%s/schemas/%s.go", *output, key))
+	os.MkdirAll(fmt.Sprintf("%s/parameters", *output), os.ModePerm)
+
+	for key, schema := range swagger.Components.Schemas {
+		err := builder.WriteSchemaFile(*output, *modulePath, key, schema)
 		if err != nil {
 			panic(err)
 		}
 	}
 
-	for key, responses := range swaggerParser.Responses {
-		fileString := builder.BuildResponseFile(*modulePath, key, responses)
-		err := utils.WriteFile(fileString, fmt.Sprintf("%s/responses/%s.go", *output, key))
+	for key, responses := range swagger.Components.Responses {
+		err := builder.WriteResponseFile(*output, *modulePath, key, responses)
 		if err != nil {
 			panic(err)
 		}
 	}
 
-	for key, api := range swaggerParser.APIs {
-		fileString := builder.BuildAPIFile(*modulePath, api)
-		err := utils.WriteFile(fileString, fmt.Sprintf("%s/%s.go", *output, key))
+	for key, parameter := range swagger.Components.Parameters {
+		err := builder.WriteParameterFile(*output, *modulePath, key, parameter)
 		if err != nil {
 			panic(err)
 		}
+	}
+
+	fileWritter, err := os.Create(fmt.Sprintf("%s/%s.go", *output, "services"))
+	if err != nil {
+		panic(err)
+	}
+	defer fileWritter.Close()
+
+	interfaceFile, err := builder.BuildServiceInterfaceFile(*modulePath, swagger)
+	if err != nil {
+		panic(err)
+	}
+	if err := interfaceFile.Render(fileWritter); err != nil {
+		panic(err)
 	}
 }
