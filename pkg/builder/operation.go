@@ -26,15 +26,9 @@ type OperationBuilder struct {
 	PathParameters openapi3.Parameters
 }
 
-func (builder *OperationBuilder) AsField(fieldName string) (jen.Code, []jen.Code, error) {
+func (builder *OperationBuilder) RequestStruct() (jen.Code, []jen.Code, error) {
 	operationID := strings.Title(builder.Operation.OperationID)
 	requestID := fmt.Sprintf("%sRequest", operationID)
-	responseID := fmt.Sprintf("%sResponse", operationID)
-
-	function := jen.Commentf("%s %s", operationID, builder.Operation.Description).Line().Id(operationID).Params(
-		jen.Id("ctx").Qual("context", "Context"),
-		jen.Id("request").Op("*").Qual("", requestID),
-	).Params(jen.Op("*").Qual("", responseID), jen.Error())
 
 	extras := make([]jen.Code, 0)
 	requestParams := make([]jen.Code, 0)
@@ -59,7 +53,16 @@ func (builder *OperationBuilder) AsField(fieldName string) (jen.Code, []jen.Code
 		extras = append(extras, requestExtras...)
 	}
 
-	request := jen.Commentf("%s encapsulates the expected request for %s()", requestID, operationID).Line().Type().Id(requestID).Struct(requestParams...).Line()
+	return jen.Commentf("%s encapsulates the expected request for %s()", requestID, operationID).Line().Type().Id(requestID).Struct(requestParams...).Line(),
+		extras,
+		nil
+}
+
+func (builder *OperationBuilder) ResponseStruct() (jen.Code, []jen.Code, error) {
+	operationID := strings.Title(builder.Operation.OperationID)
+	responseID := fmt.Sprintf("%sResponse", operationID)
+
+	extras := make([]jen.Code, 0)
 
 	responseParams := make([]jen.Code, 0)
 	for statusCode, response := range builder.Operation.Responses {
@@ -72,9 +75,32 @@ func (builder *OperationBuilder) AsField(fieldName string) (jen.Code, []jen.Code
 		extras = append(extras, extra...)
 	}
 
-	response := jen.Commentf("%s encapsulates the expected response for %s()", responseID, operationID).Line().Type().Id(responseID).Struct(responseParams...).Add(extras...).Line()
-
-	return function,
-		[]jen.Code{request, response},
+	return jen.Commentf("%s encapsulates the expected response for %s()", responseID, operationID).Line().Type().Id(responseID).Struct(
+			responseParams...,
+		).Add(
+			extras...,
+		).Line(),
+		nil,
 		nil
+}
+
+func (builder *OperationBuilder) InterfaceField() (jen.Code, error) {
+	operationID := strings.Title(builder.Operation.OperationID)
+	requestID := fmt.Sprintf("%sRequest", operationID)
+	responseID := fmt.Sprintf("%sResponse", operationID)
+
+	return jen.Commentf("%s %s", operationID, builder.Operation.Description).Line().Id(operationID).Params(
+			jen.Id("ctx").Qual("context", "Context"),
+			jen.Id("request").Op("*").Qual("", requestID),
+		).Params(jen.Op("*").Qual("", responseID), jen.Error()),
+		nil
+}
+
+// func(ResponseWriter, *Request)
+func (builder *OperationBuilder) HTTPHandler() (jen.Code, error) {
+	operationID := strings.Title(builder.Operation.OperationID)
+	return jen.Func().Id(fmt.Sprintf("%sWrapper", operationID)).Params(
+		jen.Qual("net/http", "ResponseWriter"),
+		jen.Op("*").Qual("net/http", "Request"),
+	), nil
 }

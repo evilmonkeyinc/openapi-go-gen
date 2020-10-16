@@ -1,0 +1,181 @@
+openapi: 3.0.3
+info:
+  title: Sample API
+  version: "1.0"
+  contact:
+    name: Scott McGowan
+    url: "http://github.com/evilmonkeyinc"
+    email: evilmonkeyinc@gmail.com
+tags:
+  - name: sample
+components:
+  parameters:
+    booleanQueryRequired:
+      name: booleanValue
+      in: query
+      required: true
+      description: required boolean query parameters
+      schema:
+        type: boolean
+    booleanQueryOptional:
+      name: booleanValue
+      in: query
+      required: false
+      description: optional boolean query parameters
+      schema:
+        type: boolean
+    integerQueryDefaultRequired:
+      name: intDefaultValue
+      in: query
+      required: true
+      description: required integer query parameter with no format
+      schema:
+        type: integer
+    integerQueryDefaultOptional:
+      name: intDefaultValue
+      in: query
+      required: false
+      description: optional integer query parameter with no format
+      schema:
+        type: integer
+    integerQuery32Required:
+      name: int32Value
+      in: query
+      required: true
+      description: required integer query parameter with no int32 format
+      schema:
+        type: integer
+        format: int32
+    integerQuery32Optional:
+      name: int32Value
+      in: query
+      required: false
+      description: optional integer query parameter with with int32 format
+      schema:
+        type: integer
+        format: int32
+    integerQuery64Required:
+      name: int64Value
+      in: query
+      required: true
+      description: required integer query parameter with no int64 format
+      schema:
+        type: integer
+        format: int64
+    integerQuery64Optional:
+      name: int64Value
+      in: query
+      required: false
+      description: optional integer query parameter with with int64 format
+      schema:
+        type: integer
+        format: int64
+    numberQueryDefaultRequired:
+      name: numberValue
+      in: query
+      required: true
+      description: required number type with no format
+      schema:
+        type: number
+    numberQueryDefaultOptional:
+      name: numberValue
+      in: query
+      required: false
+      description: optional number type with no format
+      schema:
+        type: number
+    numberQueryFloatRequired:
+      name: number32Value
+      in: query
+      required: true
+      description: required number type with float format
+      schema:
+        type: number
+        format: float
+    numberQueryFloatOptional:
+      name: number32Value
+      in: query
+      required: false
+      description: optional number type with float format
+      schema:
+        type: number
+        format: float
+    numberQueryDoubleRequired:
+      name: number64Value
+      in: query
+      required: true
+      description: required number type with double format
+      schema:
+        type: number
+        format: double
+    numberQueryDoubleOptional:
+      name: number64Value
+      in: query
+      required: false
+      description: optional number type with double format
+      schema:
+        type: number
+        format: double
+    stringQueryRequired:
+      name: stringValue
+      in: query
+      required: true
+      description: required string type with no format
+      schema:
+        type: string
+    stringQueryOptional:
+      name: stringValue
+      in: query
+      required: false
+      description: optional string type with no format
+      schema:
+        type: string
+    stringQueryByteRequired:
+      name: byteValue
+      in: query
+      required: true
+      description: required string type with byte format
+      schema:
+        type: string
+        format: byte
+    stringQueryByteOptional:
+      name: byteValue
+      in: query
+      required: false
+      description: optional string type with byte format
+      schema:
+        type: string
+        format: byte
+    stringQueryDateRequired:
+      name: dateValue
+      in: query
+      required: true
+      description: required string type with date format
+      schema:
+        type: string
+        format: date
+    stringQueryDateOptional:
+      name: dateValue
+      in: query
+      required: false
+      description: optional string type with date format
+      schema:
+        type: string
+        format: date
+paths:
+  /sample:
+    get:
+      operationId: getSample
+      tags:
+        - sample
+      description: getSample path
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: string
+servers:
+  - url: "https://api.server.test/v1"
+    description: local test server

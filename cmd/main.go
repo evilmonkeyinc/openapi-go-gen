@@ -37,6 +37,7 @@ func main() {
 	os.MkdirAll(fmt.Sprintf("%s/schemas", *output), os.ModePerm)
 	os.MkdirAll(fmt.Sprintf("%s/responses", *output), os.ModePerm)
 	os.MkdirAll(fmt.Sprintf("%s/parameters", *output), os.ModePerm)
+	os.MkdirAll(fmt.Sprintf("%s/operations", *output), os.ModePerm)
 
 	for key, schema := range swagger.Components.Schemas {
 		err := builder.WriteSchemaFile(*output, *modulePath, key, schema)
@@ -59,17 +60,7 @@ func main() {
 		}
 	}
 
-	fileWritter, err := os.Create(fmt.Sprintf("%s/%s.go", *output, "services"))
-	if err != nil {
-		panic(err)
-	}
-	defer fileWritter.Close()
-
-	interfaceFile, err := builder.BuildServiceInterfaceFile(*modulePath, swagger)
-	if err != nil {
-		panic(err)
-	}
-	if err := interfaceFile.Render(fileWritter); err != nil {
+	if err := builder.WriteOperationFiles(*output, *modulePath, swagger); err != nil {
 		panic(err)
 	}
 }
