@@ -162,6 +162,13 @@ components:
       schema:
         type: string
         format: date
+    booleanPath:
+      name: boolean
+      in: path
+      required: true
+      description: required boolean path parameters
+      schema:
+        type: boolean
 paths:
   /sample:
     get:

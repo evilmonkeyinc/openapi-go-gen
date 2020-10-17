@@ -46,6 +46,15 @@ func parser(structName string, parameter *openapi3.Parameter) (jen.Code, error) 
 			params,
 			jen.Return(jen.Nil()),
 		)
+	case "path":
+		params := jen.Id("str").Op(":=").Id("req").Dot("URL").Dot("Query").Call().Dot("Get").Call(jen.Lit(parameter.Name)).Line()
+		params = params.If(jen.Id("str").Op("!=").Id("\"\"")).Block(
+			converstionCode,
+		)
+		code = code.Block(
+			params,
+			jen.Return(jen.Nil()),
+		)
 	default:
 		return nil, fmt.Errorf("support for parameter in type \"%s\" is not implemented", parameter.In)
 	}
@@ -92,7 +101,10 @@ func (builder *parameterBuilder) AsStruct(name string) (jen.Code, []jen.Code, er
 		parameterBuilder := NewParameterBuilder(builder.Module, builder.PackageName, builder.ParentID, builder.ParameterRef, true)
 		param, _, _ := parameterBuilder.AsField(parameter.Name)
 
-		extra, _ := parser(name, parameter)
+		extra, err := parser(name, parameter)
+		if err != nil {
+			return nil, nil, err
+		}
 
 		return jen.Type().Id(strings.Title(name)).Struct(
 				param,
