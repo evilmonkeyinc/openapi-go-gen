@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/evilmonkeyinc/openapi-go-gen/pkg/builder"
+	"github.com/evilmonkeyinc/openapi-go-gen/pkg/builder/components"
 	"github.com/getkin/kin-openapi/openapi3"
 )
 
@@ -35,32 +35,12 @@ func main() {
 
 	os.MkdirAll(*output, os.ModePerm)
 	os.MkdirAll(fmt.Sprintf("%s/schemas", *output), os.ModePerm)
-	os.MkdirAll(fmt.Sprintf("%s/responses", *output), os.ModePerm)
-	os.MkdirAll(fmt.Sprintf("%s/parameters", *output), os.ModePerm)
-	os.MkdirAll(fmt.Sprintf("%s/operations", *output), os.ModePerm)
 
 	for key, schema := range swagger.Components.Schemas {
-		err := builder.WriteSchemaFile(*output, *modulePath, key, schema)
+		err := components.GenerateSchema(*output, key, schema)
 		if err != nil {
-			panic(err)
+			fmt.Printf("%s\n", err.Error())
 		}
 	}
 
-	for key, responses := range swagger.Components.Responses {
-		err := builder.WriteResponseFile(*output, *modulePath, key, responses)
-		if err != nil {
-			panic(err)
-		}
-	}
-
-	for key, parameter := range swagger.Components.Parameters {
-		err := builder.WriteParameterFile(*output, *modulePath, key, parameter)
-		if err != nil {
-			panic(err)
-		}
-	}
-
-	if err := builder.WriteOperationFiles(*output, *modulePath, swagger); err != nil {
-		panic(err)
-	}
 }
